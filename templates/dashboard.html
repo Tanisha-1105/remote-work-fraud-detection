@@ -6,7 +6,6 @@
     .progress-bar-productivity {
         background: linear-gradient(90deg, #28a745 0%, #28a745 50%, #28a745 100%);
         transition: width 0.3s ease;
-        /* Masks the gradient with the actual width */
         mask-image: linear-gradient(to right, black, black);
         -webkit-mask-image: linear-gradient(to right, black, black);
     }
@@ -350,21 +349,19 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 <script>
-    // --- Configuration & State ---
+    //Configuration & State
     const EMPLOYEE_ID = document.getElementById('employee-id').value;
     const LOG_INTERVAL_MS = 15000;
     const MAX_IDLE_TIME_MS = 60000;
     let trackingActive = true, mouseCount = 0, keystrokeCount = 0;
     let lastActivityTime = Date.now(), logInterval, sessionStart;
     let isPageActive = true, windowActivityMap = {};
-    let employeePeerConnection = null; // Global Peer Connection
-    let pendingCandidates = [];        // Queue for ICE candidates (Fixes Race Condition)
-
+    let employeePeerConnection = null;
+    let pendingCandidates = []; 
     const socket = io();
     const STUN_SERVERS = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
 
-    // --- DOM Elements ---
-    // (Existing DOM element references)
+    // DOM Elements
     const mouseCountEl = document.getElementById('mouse-count');
     const keyboardCountEl = document.getElementById('keystroke-count');
     const statusDotEl = document.getElementById('status-dot');
@@ -385,14 +382,14 @@
     const notificationEl = document.getElementById('notification-message');
     const logFilterEl = document.getElementById('log-filter');
 
-    // --- Core Logic ---
+    //Core Logic
 
-    // 1. Socket Connection
+    // Socket Connection
     socket.on('connect', () => {
         if (EMPLOYEE_ID) socket.emit('employee_join_room', { employee_id: EMPLOYEE_ID });
     });
 
-    // 2. WebRTC Signal Handler (Fixes: Handling Early ICE Candidates)
+    //WebRTC Signal Handler
     socket.on('webrtc_signal', async (signalData) => {
         try {
             if (!employeePeerConnection) return; // Wait for PC initialization
@@ -401,7 +398,6 @@
                 console.log("Received OFFER from admin");
                 await employeePeerConnection.setRemoteDescription(new RTCSessionDescription(signalData.payload));
 
-                // Process any ICE candidates that arrived before the offer
                 while (pendingCandidates.length > 0) {
                     const candidate = pendingCandidates.shift();
                     await employeePeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
@@ -430,17 +426,14 @@
         }
     });
 
-    // 3. Screen Share Request Handler (Fixes: Button Logic & Stream Setup)
+    //Screen Share Request Handler
     socket.on('screen_share_request', function(data) {
         console.log('Screen Share Request received');
-        
-        // Remove old alerts
+
         document.querySelectorAll('.fixed-top.alert').forEach(el => el.remove());
-        
-        // Play Alert
+
         try { new Audio("{{ url_for('static', filename='audio/alert.mp3') }}").play().catch(e=>{}); } catch (e) {}
-        
-        // Show Alert
+
         const alertHtml = `
             <div class="alert alert-info alert-dismissible fade show fixed-top m-3 shadow-lg" role="alert" style="z-index: 2000;">
                 <strong>🖥️ REQUEST:</strong> Admin requests screen share.
@@ -449,25 +442,17 @@
             </div>`;
         document.body.insertAdjacentHTML('afterbegin', alertHtml);
 
-        // Attach Listener to the NEW button
         document.getElementById('acceptScreenShare').addEventListener('click', async function() {
             this.disabled = true;
             this.textContent = 'Connecting...';
             
             if (employeePeerConnection) employeePeerConnection.close();
-            pendingCandidates = []; // Reset queue
+            pendingCandidates = [];
 
             try {
-                // Get Screen Stream
                 const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" }, audio: false });
-                
-                // Init PeerConnection
                 employeePeerConnection = new RTCPeerConnection(STUN_SERVERS);
-                
-                // Add Tracks
                 stream.getTracks().forEach(track => employeePeerConnection.addTrack(track, stream));
-
-                // Handle ICE
                 employeePeerConnection.onicecandidate = (event) => {
                     if (event.candidate) {
                         socket.emit('webrtc_signal', {
@@ -479,14 +464,12 @@
                     }
                 };
 
-                // Stop stream on UI close
                 stream.getVideoTracks()[0].onended = () => {
                     console.log("Screen sharing stopped by user.");
                     if(employeePeerConnection) employeePeerConnection.close();
                     document.querySelector('.fixed-top.alert')?.remove();
                 };
 
-                // Notify Admin to start the handshake (They will send OFFER)
                 socket.emit('screen_share_accepted', { employee_id: EMPLOYEE_ID, status: 'accepted' });
                 console.log("Stream ready. Waiting for Admin Offer...");
 
@@ -499,7 +482,7 @@
         });
     });
 
-    // 4. Warning Handler
+    //Warning Handler
     socket.on('employee_warning', function(data) {
         document.querySelectorAll('.fixed-top.alert').forEach(el => el.remove());
         try { new Audio("{{ url_for('static', filename='audio/alert.mp3') }}").play().catch(e=>{}); } catch (e) {}
@@ -512,13 +495,13 @@
         document.body.insertAdjacentHTML('afterbegin', alertHtml);
     });
 
-    // 5. Dashboard Updates
+    //Dashboard Updates
     socket.on('employee_dashboard_update', function(data) {
         updateStatsFromAPI(data.summary, data.risk_score); 
         prependLogEntry(data.new_log);
     });
 
-    // --- Helper Functions (Existing Logic Preserved) ---
+    //Helper Functions
     function formatTime(seconds) {
         const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
         const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
@@ -550,8 +533,8 @@
 
         // Notification Color Logic
         const card = notificationEl.parentElement.parentElement;
-        card.className = 'card border-warning bg-warning-subtle'; // Reset base
-        notificationEl.className = 'mb-0 d-flex align-items-center'; // Reset base
+        card.className = 'card border-warning bg-warning-subtle';
+        notificationEl.className = 'mb-0 d-flex align-items-center'; 
         
         if (riskScore >= 80) {
              card.classList.replace('bg-warning-subtle', 'bg-danger-subtle');
@@ -583,12 +566,12 @@
         if (logListEl.children.length > 10) logListEl.lastChild.remove();
     }
 
-    // --- Input Tracking ---
+    //Input Tracking
     document.addEventListener('mousemove', () => { if(trackingActive) { mouseCount++; handleActivity(); mouseCountEl.textContent = mouseCount; } });
     document.addEventListener('click', () => { if(trackingActive) { mouseCount++; handleActivity(); } });
     document.addEventListener('keydown', (e) => { if(trackingActive && !e.ctrlKey) { keystrokeCount++; handleActivity(); keyboardCountEl.textContent = keystrokeCount; } });
     
-    // Tab Focus Logic
+    //Tab Focus Logic
     document.addEventListener('visibilitychange', () => {
         const btn = document.getElementById('toggle-tracking');
         if (document.hidden) {
