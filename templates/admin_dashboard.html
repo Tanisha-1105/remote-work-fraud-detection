@@ -190,20 +190,17 @@
 <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-// =====================================================
 // SOCKET.IO & WEBRTC SETUP
-// =====================================================
 const socket = io();
 const STUN_SERVERS = { iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] };
 let peerConnection = null;
-let currentEmployeeId = null; // Stores ID of employee being viewed
+let currentEmployeeId = null;
 let pendingIce = [];
 
-// 1. Initiate Admin Side WebRTC
+//Initiate Admin Side WebRTC
 function startAdminWebRTC(employeeId) {
     if (peerConnection) peerConnection.close(); 
     
-    // Fix: Ensure we are using the correct variable for subsequent logic
     currentEmployeeId = employeeId;
 
     peerConnection = new RTCPeerConnection(STUN_SERVERS);
@@ -221,7 +218,7 @@ function startAdminWebRTC(employeeId) {
         }
     };
  
-    // Handle incoming video stream
+    //Handle incoming video stream
     peerConnection.ontrack = (event) => {
         const video = document.getElementById("remoteVideo");
         video.srcObject = event.streams[0];
@@ -235,7 +232,7 @@ function startAdminWebRTC(employeeId) {
     createOffer(employeeId);
 }
 
-// 2. Create Offer
+//Create Offer
 async function createOffer(employeeId) {
     try {
         const offer = await peerConnection.createOffer();
@@ -253,7 +250,7 @@ async function createOffer(employeeId) {
     }
 }
 
-// 3. Signal Listener (Answer & ICE)
+//Signal Listener
 socket.on("webrtc_signal", async data => {
     if (!peerConnection) return;
 
@@ -274,10 +271,7 @@ socket.on("webrtc_signal", async data => {
     }
 });
 
-// =====================================================
 // ADMIN ACTIONS
-// =====================================================
-
 function sendWarning(employeeId, employeeName) {
     const msg = prompt(`Send Warning to ${employeeName}:`, `Warning: High idle time detected.`);
     if (msg) {
@@ -313,9 +307,7 @@ socket.on("screen_share_accepted_admin_notification", (data) => {
     }
 });
 
-// =====================================================
-// DASHBOARD UPDATES (Stats/Charts)
-// =====================================================
+// DASHBOARD UPDATES
 
 socket.on("admin_dashboard_update", data => {
     updateStatCards(data);
