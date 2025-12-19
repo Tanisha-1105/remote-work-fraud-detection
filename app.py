@@ -12,7 +12,7 @@ from io import StringIO
 import datetime
 import time
 from flask import session
-# Load environment variables (like secret key) from .env file
+# Load environment variables from .env file
 load_dotenv()
 
 app = Flask(__name__)
@@ -20,11 +20,9 @@ app = Flask(__name__)
 app.secret_key = os.urandom(24) 
 
 db = Database()
-# Assuming ml_engine.py exists and is correctly implemented
 fraud_detector = FraudDetector() 
 
 # INIT APP
-
 load_dotenv()
 app = Flask(__name__)
 app.secret_key = os.urandom(24)
@@ -32,8 +30,8 @@ db = Database()
 fraud_detector = FraudDetector()
 
 socketio = SocketIO(app, cors_allowed_origins="*", ping_interval=5, ping_timeout=10)
-# AUTH DECORATORS
 
+# AUTH DECORATORS
 def login_required(f):
     """Decorator to check if an employee is logged in."""
     @wraps(f)
@@ -53,7 +51,6 @@ def admin_required(f):
     return wrapper
 
 # USER LOGIN / LOGOUT
-
 @app.route('/')
 def index():
     """
@@ -106,9 +103,7 @@ def logout():
         session.clear()
     return redirect(url_for("login"))
 
-# ------------------------------------------------------
 # EMPLOYEE DASHBOARD
-# ------------------------------------------------------
 @app.route('/dashboard')
 @login_required
 def dashboard():
@@ -129,10 +124,8 @@ def dashboard():
         recent_logs=recent_logs
     )
 
-# ------------------------------------------------------
-# SOCKETIO EVENTS
-# ------------------------------------------------------
 
+# SOCKETIO EVENTS
 @socketio.on('connect')
 def handle_connect():
     """Handles new SocketIO connections and assigns rooms based on session."""
@@ -177,19 +170,15 @@ def handle_desktop_activity_log(data):
                       {'command': 'stop'}, 
                       room=f"employee_{employee_id}")
         return
-    
-    # 1. Log the received activity data (returns the newly created log)
+
     new_log_id = db.create_activity_log(employee_id, mouse, keyboard, idle, active_window)
     new_log = db.get_activity_log_by_id(new_log_id)
-    
-    #Convert the Python datetime object to a string for JSON serialization
+   
     if new_log and isinstance(new_log.get('timestamp'), datetime.datetime):
         new_log['timestamp'] = new_log['timestamp'].isoformat()
-    
-    # 2. Run ML analysis (creates alert if needed)
+  
     analysis_result = fraud_detector.analyze_and_flag(db, employee_id)
 
-    # 3. Push real-time update to Employee Dashboard
     activity_summary = db.get_activity_summary(employee_id)
     
     #ADD CONVERSION LOGICERE
@@ -217,14 +206,12 @@ def handle_desktop_activity_log(data):
     
     stats = db.get_dashboard_stats()
     employees_at_risk = db.get_employees_with_risk_scores()
-    
-    # Send event to all connected admins
+   
     socketio.emit('admin_dashboard_update', {
         'type': 'activity_log',
         'employee_id': employee_id,
         'risk_score': analysis_result.get('risk_score', 0) if analysis_result else 0,
         'latest_alert': latest_alert_json,
-        # [cite_start]CRITICAL: Pass the data needed by the JS update functions in admin_dashboard.html [cite: 1321-1326]
         'new_stats': stats,                  
         'employees_at_risk': employees_at_risk
     }, room='admin')
@@ -238,7 +225,6 @@ def send_warning_to_employee(data):
     
     room_id = f"employee_{employee_id}"
     
-    # Send the warning message to the specific employee's room
     socketio.emit('employee_warning', {'message': message}, room=room_id)
     print(f"Warning sent to employee {employee_id}")
 
@@ -252,7 +238,6 @@ def request_screen_share(data):
     employee_id = data.get('employee_id')
     room_id = f"employee_{employee_id}"
     
-    # Send the screen share request event to the specific employee's room
     socketio.emit('screen_share_request', {'employee_id': employee_id}, room=room_id)
     print(f"Screen share request sent to employee {employee_id}")
 
@@ -261,15 +246,12 @@ def handle_screen_share_accepted(data):
     """Employee confirms screen share acceptance."""
     employee_id = data.get('employee_id')
     
-    # Send a notification back to all admins 
     socketio.emit('screen_share_accepted_admin_notification', {
         'employee_id': employee_id,
         'message': f"Employee {employee_id} ACCEPTED the screen share. Initiating WebRTC..."
     }, room='admin')
     
     print(f"Employee {employee_id} accepted screen share.")
-    # In a real app, this handler would also be used to relay WebRTC signaling data
-    # (SDP/ICE candidates) between the employee and the requesting admin.
 
 @socketio.on('webrtc_signal')
 def handle_webrtc_signal(data):
@@ -286,8 +268,7 @@ def handle_webrtc_signal(data):
         room_id = 'admin'
     else:
         room_id = f"employee_{receiver_id}"
-    
-    # Send the signal to the target user's room or the admin room
+
     emit('webrtc_signal', {
         'type': signal_type,
         'sender_id': sender_id,
@@ -297,8 +278,7 @@ def handle_webrtc_signal(data):
     print(f"Relayed WebRTC Signal: {signal_type} from {sender_id} to {receiver_id} in room {room_id}")
 
 # API ROUTES
-
-# ADMIN LOGIN / LOGOUT
+# ADMIN LOGIN/LOGOUT
 
 @app.route('/admin/login', methods=['GET', 'POST'])
 def admin_login():
@@ -381,7 +361,6 @@ def add_employee():
 @admin_required
 def delete_employee(employee_id):
     try:
-        # Database logic handles cascading deletion of logs and alerts
         db.delete_employee(employee_id)
         flash("Employee and all related data deleted successfully.", "success")
     except Exception as e:
@@ -420,8 +399,7 @@ def log_activity():
     """
     data = request.json
     employee_id = data.get("employee_id")
-    
-    # Crucial data point for monitoring application usage
+
     active_window = data.get("active_window_title", "Desktop Agent Unspecified")
     
     if not employee_id:
