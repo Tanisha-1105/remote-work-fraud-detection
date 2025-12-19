@@ -1,0 +1,20 @@
+Flask main framework
+Flask-SocketIO real time communication
+python-dotenv environment variable management
+werkzeug WSGI utility library
+eventlet asynchronous networking library
+requests 
+websocket-client
+
+mysql-connector-python MySQL database connector
+ 
+numpy 
+pandas 
+scikit-learn 
+
+python-dateutil
+
+pynput
+pygetwindow
+gunicorn
+

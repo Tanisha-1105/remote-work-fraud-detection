@@ -1,0 +1,124 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+
+{% block title %}TrueLensAI - AI-Powered Remote Work Integrity System{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Custom styles for the landing page */
+    .hero-section {
+        /* Using a sophisticated dark-blue/security-themed gradient */
+        background: linear-gradient(135deg, #1b3a5e 0%, #3e6d97 100%); 
+        color: white;
+        padding: 80px 0;
+        min-height: 80vh; 
+        display: flex;
+        align-items: center;
+        text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.2);
+    }
+    .feature-icon {
+        font-size: 2.5rem;
+        color: #007bff; /* Use primary color for contrast */
+        margin-bottom: 15px;
+    }
+    .feature-card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    .feature-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.15);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm sticky-top">
+    <div class="container">
+        <a class="navbar-brand d-flex align-items-center fw-bold" href="#">
+            <i class="bi bi-shield-check me-2 fs-4 text-primary"></i>
+            True<span class="text-primary">LensAI</span>
+        </a>
+        <div class="d-flex">
+            <a href="{{ url_for('login') }}" class="btn btn-outline-secondary me-2">
+                <i class="bi bi-person-circle me-1"></i> Employee Login
+            </a>
+            <a href="{{ url_for('admin_login') }}" class="btn btn-danger">
+                <i class="bi bi-shield-lock me-1"></i> Admin Access
+            </a>
+        </div>
+    </div>
+</nav>
+
+<header class="hero-section">
+    <div class="container text-center">
+        <h1 class="display-3 fw-bold mb-4">
+            Ensuring Remote Work Integrity <br> with AI-Powered Monitoring.
+        </h1>
+        <p class="lead mb-5 fs-5 opacity-75">
+            TrueLensAI uses Isolation Forest ML to detect anomalies, slacking, and security risks in real-time employee browser activity.
+        </p>
+        <a href="{{ url_for('admin_login') }}" class="btn btn-danger btn-lg fw-bold shadow-lg me-3">
+            <i class="bi bi-shield-lock me-2"></i> Access Admin Console
+        </a>
+        <a href="#features" class="btn btn-outline-light btn-lg">
+            <i class="bi bi-graph-up-arrow me-2"></i> How It Works
+        </a>
+    </div>
+</header>
+
+<section id="features" class="py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center fw-bold mb-5">Core Capabilities</h2>
+        <div class="row g-4 text-center">
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100 p-3 shadow-sm">
+                    <div class="card-body">
+                        <i class="bi bi-robot feature-icon text-danger"></i>
+                        <h5 class="card-title fw-bold">ML Anomaly Detection</h5>
+                        <p class="card-text text-muted">Utilizes Isolation Forest to flag irregular input patterns and time-based deviations, calculating a real-time risk score.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100 p-3 shadow-sm">
+                    <div class="card-body">
+                        <i class="bi bi-display feature-icon text-primary"></i>
+                        <h5 class="card-title fw-bold">Live Context & Telemetry</h5>
+                        <p class="card-text text-muted">Tracks browser activity, active window titles (for distracting apps), mouse, and keyboard inputs per interval.</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-4">
+                <div class="card feature-card h-100 p-3 shadow-sm">
+                    <div class="card-body">
+                        <i class="bi bi-bell-fill feature-icon text-warning"></i>
+                        <h5 class="card-title fw-bold">Real-time Intervention</h5>
+                        <p class="card-text text-muted">Admins can issue real-time warnings and request on-demand screen shares for high-risk employees.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="py-5 bg-secondary text-white text-center">
+    <div class="container">
+        <h3 class="mb-3 fw-bold">Protecting Your Organization's Productivity</h3>
+        <p class="lead mb-4 opacity-75">Secure your remote operations with intelligent, unbiased monitoring.</p>
+        <a href="#" class="btn btn-primary btn-lg fw-bold shadow-lg">
+            Get Started <i class="bi bi-arrow-right-circle-fill ms-2"></i>
+        </a>
+    </div>
+</section>
+
+<footer class="bg-dark text-white-50 py-3">
+    <div class="container text-center small">
+        &copy; 2025 TrueLensAI. All rights reserved. | <a href="#" class="text-white-50">Privacy Policy</a>
+    </div>
+</footer>
+
+{% endblock %}

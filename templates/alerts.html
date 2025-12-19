@@ -1,0 +1,166 @@
+<!--alerts-->
+{% extends "base.html" %}
+
+{% block title %}Fraud Alerts - TrueLensAI{% endblock %}
+
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="{{ url_for('admin_dashboard') }}">
+            <div class="brand-icon admin me-2">
+                <i class="bi bi-shield-lock-fill"></i>
+            </div>
+            <span class="fw-bold">TrueLensAI</span>
+            <span class="text-light opacity-50 ms-2 small">/ Alerts</span>
+        </a>
+
+        <div class="d-flex align-items-center">
+            <a href="{{ url_for('admin_dashboard') }}" class="btn btn-outline-light btn-sm me-2">
+                <i class="bi bi-arrow-left me-1"></i>Back to Dashboard
+            </a>
+            <a href="{{ url_for('admin_logout') }}" class="btn btn-outline-light btn-sm">
+                <i class="bi bi-box-arrow-right me-1"></i>Logout
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid py-4 bg-light min-vh-100">
+
+    <!-- Page Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h2 class="mb-1 fw-bold">Fraud Alerts</h2>
+            <p class="text-muted mb-0">Complete history of ML-detected anomalies</p>
+        </div>
+
+        <div class="d-flex gap-2">
+            <input type="text" id="searchAlerts" class="form-control" placeholder="Search alerts..." style="width: 220px;">
+            <a href="{{ url_for('export_data') }}" class="btn btn-primary">
+                <i class="bi bi-download me-2"></i>Export CSV
+            </a>
+        </div>
+    </div>
+
+    <!-- Alerts Table -->
+    <div class="card shadow-sm">
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0" id="alertsTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>ID</th>
+                            <th>Employee</th>
+                            <th>Risk Score</th>
+                            <th>Severity</th>
+                            <th>Description</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for alert in alerts %}
+                        <tr>
+                            <td class="text-muted">#{{ alert.id }}</td>
+
+                            <!-- Employee -->
+                            <td>
+                                <div class="d-flex flex-column">
+                                    <span class="fw-semibold">{{ alert.employee_name }}</span>
+                                    <small class="text-muted">{{ alert.employee_role }}</small>
+                                </div>
+                            </td>
+
+                            <!-- Risk Score -->
+                            <td>
+                                <div class="d-flex align-items-center">
+                                    <span class="fw-bold me-2 
+                                        {% if alert.risk_score >= 80 %}text-danger
+                                        {% elif alert.risk_score >= 50 %}text-warning
+                                        {% else %}text-success{% endif %}
+                                    ">
+                                        {{ alert.risk_score|round(1) }}
+                                    </span>
+
+                                    <div class="progress" style="width: 100px; height: 6px;">
+                                        <div class="progress-bar 
+                                            {% if alert.risk_score >= 80 %}bg-danger
+                                            {% elif alert.risk_score >= 50 %}bg-warning
+                                            {% else %}bg-success{% endif %}
+                                        " style="width: {{ alert.risk_score }}%;">
+                                        </div>
+                                    </div>
+                                </div>
+                            </td>
+
+                            <!-- Alert Severity -->
+                            <td>
+                                <span class="badge px-3 py-2 
+                                    {% if alert.alert_level == 'High' %}
+                                        bg-danger
+                                    {% elif alert.alert_level == 'Medium' %}
+                                        bg-warning text-dark
+                                    {% else %}
+                                        bg-success
+                                    {% endif %}
+                                ">
+                                    <i class="bi 
+                                        {% if alert.alert_level == 'High' %}
+                                            bi-exclamation-octagon
+                                        {% elif alert.alert_level == 'Medium' %}
+                                            bi-exclamation-triangle
+                                        {% else %}
+                                            bi-check-circle
+                                        {% endif %}
+                                    me-1"></i>
+                                    {{ alert.alert_level }}
+                                </span>
+                            </td>
+
+                            <!-- Description -->
+                            <td>
+                                <span class="text-truncate d-inline-block" style="max-width: 360px;" title="{{ alert.description }}">
+                                    {{ alert.description }}
+                                </span>
+                            </td>
+
+                            <!-- Timestamp -->
+                            <td>
+                                <small class="text-muted">
+                                    {{ alert.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                                </small>
+                            </td>
+                        </tr>
+
+                        {% else %}
+                        <tr>
+                            <td colspan="6" class="text-center py-5 text-muted">
+                                <i class="bi bi-shield-check fs-1 d-block mb-3"></i>
+                                No fraud alerts detected yet. The system is monitoring continuously.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+
+{% block extra_js %}
+<script>
+//  Live Search Filter
+document.getElementById("searchAlerts").addEventListener("keyup", function () {
+    const filter = this.value.toLowerCase();
+    const rows = document.querySelectorAll("#alertsTable tbody tr");
+
+    rows.forEach(row => {
+        const text = row.innerText.toLowerCase();
+        row.style.display = text.includes(filter) ? "" : "none";
+    });
+});
+</script>
+{% endblock %}

@@ -1,0 +1,659 @@
+<!-- templates/dashboard.html -->
+{% extends "base.html" %}
+{% block title %}Employee Dashboard - TrueLensAI{% endblock %}
+{% block extra_css %}
+<style>
+    .progress-bar-productivity {
+        background: linear-gradient(90deg, #28a745 0%, #28a745 50%, #28a745 100%);
+        transition: width 0.3s ease;
+        /* Masks the gradient with the actual width */
+        mask-image: linear-gradient(to right, black, black);
+        -webkit-mask-image: linear-gradient(to right, black, black);
+    }
+    .telemetry-item {
+        border-radius: 8px;
+        transition: background-color 0.2s ease;
+    }
+    .telemetry-item.highlight {
+        background-color: #e0f7fa !important; /* Soft blue flash for P2.3 */
+    }
+    .status-indicator {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        display: inline-block;
+        transition: background-color 0.3s;
+    }
+    .status-indicator.active { background-color: #28a745; }
+    .status-indicator.paused { background-color: #ffc107; }
+    .status-indicator.error { background-color: #dc3545; }
+
+    .info-icon:hover + .tooltip-text {
+        visibility: visible;
+        opacity: 1;
+    }
+    .tooltip-text {
+        visibility: hidden;
+        opacity: 0;
+        width: 250px;
+        background-color: #555;
+        color: #fff;
+        text-align: left;
+        border-radius: 6px;
+        padding: 5px 10px;
+        position: absolute;
+        z-index: 1;
+        bottom: 125%;
+        left: 50%;
+        margin-left: -125px;
+        transition: opacity 0.3s;
+    }
+    .log-list {
+        max-height: 400px;
+        overflow-y: auto;
+    }
+    .hover-card {
+        transition: tr
+        cursor: pointer;
+    }
+    .hover-card:hover {
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        transform: translateY(-3px);
+    }
+</style>
+{% endblock %}
+{% block content %}
+<nav class="navbar navbar-expand-lg navbar-light bg-white border-bottom">
+    <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center" href="#">
+            <div class="brand-icon me-2"><i class="bi bi-shield-check"></i></div>
+            <span class="fw-bold">TrueLensAI</span>
+            <span class="text-muted ms-2 small">Employee Portal</span>
+        </a>
+        <div class="d-flex align-items-center">
+            <span class="me-3 text-muted d-none d-md-inline">
+                <i class="bi bi-person-circle me-1"></i>{{ user_name }}
+            </span>
+            <a href="{{ url_for('logout') }}" class="btn btn-outline-secondary btn-sm">
+                <i class="bi bi-box-arrow-right me-1"></i>Logout
+            </a>
+        </div>
+    </div>
+</nav>
+
+<div class="container-fluid py-4">
+    <div class="row g-4 mb-4">
+        <div class="col-md-3">
+            <div class="card h-100 border-start border-primary border-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center mb-2">
+                        <i class="bi bi-person-badge-fill text-primary fs-3 me-3"></i>
+                        <div>
+                            <p class="text-muted small mb-0">Employee Profile</p>
+                            <h5 class="mb-0">{{ employee_info.name }}</h5>
+                        </div>
+                    </div>
+                    <small class="d-block text-muted mb-1">
+                        <i class="bi bi-briefcase me-1"></i>Role: <strong>{{ employee_info.role|capitalize }}</strong>
+                    </small>
+                    <small class="d-block text-muted mb-1">
+                        <i class="bi bi-building-fill me-1"></i>Dept: <strong>{{ employee_info.department }}</strong>
+                    </small>
+                    <small class="d-block text-muted">
+                        <i class="bi bi-clock-fill me-1"></i>Shift: <strong>{{ employee_info.shift_time }}</strong>
+                    </small>
+                    <div class="mt-2 text-end">
+                        <a href="#" class="text-primary text-decoration-none" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#profileModal"
+                        style="font-size: 0.75rem;">
+                            View Details <i class="bi bi-arrow-right"></i>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card status-card h-100 bg-success-subtle border-success border-4" id="tracking-status-card">
+                <div class="card-body d-flex align-items-center justify-content-between">
+                    <div>
+                        <p class="text-muted mb-1 small">Browser Tracking Status</p>
+                        <div class="d-flex align-items-center">
+                            <span class="status-indicator active me-2" id="status-dot"></span>
+                            <h5 class="mb-0 text-success" id="status-text">Active Monitoring</h5>
+                        </div>
+                        <small class="text-muted mt-1 d-block" id="status-context">
+                            Click pause to temporarily stop tracking.
+                        </small>
+                    </div>
+                    <button class="btn btn-lg rounded-circle btn-success" id="toggle-tracking" onclick="toggleTracking()"
+                        title="Toggle local browser tracking">
+                        <i class="bi bi-pause"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body d-flex align-items-center">
+                    <div class="icon-box bg-primary-subtle text-primary me-3">
+                        <i class="bi bi-clock"></i>
+                    </div>
+                    <div>
+                        <p class="text-muted mb-1 small">Session Duration</p>
+                        <h4 class="mb-0 font-monospace" id="session-time">00:00:00</h4>
+                        <small class="text-muted">Started at <span id="start-time">--:--</span></small>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-3">
+            <div class="card h-100">
+                <div class="card-body">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <p class="text-muted small mb-0">Productivity Score (Browser Activity)</p>
+                        <span class="position-relative">
+                            <i class="bi bi-info-circle info-icon text-muted small" style="cursor: pointer;"></i>
+                            <span class="tooltip-text">
+                                <strong>Formula:</strong>(Active Time/ Total Session Time) * 100%. 
+                            </span>
+                        </span>
+                    </div>
+
+                    <h4 class="mb-2" id="productivity-score">0%</h4>
+                    
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar progress-bar-productivity" id="productivity-bar" style="width: 0%;">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex justify-content-between small text-muted mt-2">
+                        <span>Active Time: <strong id="active-time-display">0s</strong></span>
+                        <span>Idle Time: <strong id="idle-time-display">0s</strong></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-12">
+             <div class="card bg-warning-subtle border-warning">
+                <div class="card-body p-3">
+                    <h6 class="mb-0 text-warning d-flex align-items-center">
+                        <i class="bi bi-bell-fill me-2 fs-5"></i>
+                        <span id="notification-message">
+                            Your risk score is currently <strong>Low</strong>. The system is continuously monitoring activity.
+                        </span>
+                    </h6>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-white">
+                    <h5 class="mb-0"><i class="bi bi-cpu me-2"></i>Live Input Telemetry (Current Interval)</h5>
+                </div>
+                <div class="card-body">
+                    <div class="telemetry-item mb-3" id="mouse-telemetry">
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-mouse me-3 text-muted fs-5"></i>
+                                <span class="fw-medium">Mouse Events (In Browser)</span>
+                            </div>
+                            <span class="font-monospace fs-4" id="mouse-count">0</span>
+                        </div>
+                    </div>
+                    <div class="telemetry-item mb-4" id="keyboard-telemetry">
+                        <div class="d-flex justify-content-between align-items-center p-3 bg-light rounded">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-keyboard me-3 text-muted fs-5"></i>
+                                <span class="fw-medium">Keystrokes (In Browser)</span>
+                            </div>
+                            <span class="font-monospace fs-4" id="keystroke-count">0</span>
+                        </div>
+                    </div>
+                    
+                    <hr class="my-4">
+                    
+                    <h5 class="mb-3"><i class="bi bi-graph-up-arrow me-2"></i>Session Performance Summary</h5>
+                    <div class="row g-3 small">
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <div class="text-muted small mb-1">Total Input Activity</div>
+                                <span class="fw-bold fs-5" id="total-activity-count">0</span>
+                                <small class="text-muted d-block">Mouse + Key logs combined</small>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 bg-light rounded">
+                                <div class="text-muted small mb-1">Top Window</div>
+                                <span class="fw-bold text-truncate d-block" id="most-active-window-summary">N/A</span>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <small class="text-muted d-block mt-3 mb-1">Connection Details</small>
+                            <div class="row g-2 small">
+                                <div class="col-6">
+                                    <i class="bi bi-geo-alt me-1"></i>IP Address: <span class="font-monospace">{{ request.remote_addr }}</span>
+                                </div>
+                                <div class="col-6">
+                                    <i class="bi bi-hdd me-1"></i>Device ID: <span class="font-monospace" id="device-id">---</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <hr class="my-4">
+                    
+                    <h6 class="text-muted mb-3">Active Context (Browser Title)</h6>
+                    <p class="mb-0 small text-truncate" id="active-window-display">
+                        Monitoring browser title...
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-6">
+            <div class="card h-100">
+                <div class="card-header bg-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0"><i class="bi bi-list-ul me-2"></i>Recent Logs (Browser)</h5>
+                    <select class="form-select form-select-sm w-auto" id="log-filter">
+                        <option value="all">Show All</option>
+                        <option value="idle">Show Only Idle (I>0s)</option>
+                        <option value="active">Show Only Active (I=0s)</option>
+                    </select>
+                </div>
+                <div class="card-body p-0">
+                    <div class="log-list" id="log-list">
+                        {% for log in recent_logs %}
+                        <div class="log-item p-3 border-bottom d-flex justify-content-between align-items-center 
+                            {% if log.idle_time >= 30 %} log-idle-high 
+                            {% elif log.idle_time > 0 %} log-idle-low 
+                            {% else %} log-active 
+                            {% endif %}" data-filter="{{ 'idle' if log.idle_time > 0 else 'active' }}">
+                            <div>
+                                <small class="text-muted d-block">{{ log.timestamp.strftime('%H:%M:%S') }}</small>
+                                <strong>
+                                    <i class="bi bi-mouse me-1"></i> M: {{ log.mouse_activity }} 
+                                    <i class="bi bi-keyboard ms-2 me-1"></i> K: {{ log.keyboard_activity }} 
+                                    <i class="bi bi-hourglass-split ms-2 me-1"></i> I: {{ log.idle_time }}s
+                                </strong>
+                                <div class="small text-truncate text-muted">Window: {{ log.active_window_title or 'N/A' }}</div>
+                            </div>
+                            <span class="badge bg-{{ 'danger' if log.idle_time >= 30 else 'warning' if log.idle_time > 0 else 'success' }} align-self-center">
+                                {{ 'High Idle' if log.idle_time >= 30 else 'Idle' if log.idle_time > 0 else 'Active' }}
+                            </span>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<div class="modal fade" id="profileModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="bi bi-person-badge-fill me-2"></i>Employee Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center mb-4">
+                    <div class="bg-light rounded-circle d-flex align-items-center justify-content-center mx-auto mb-3" style="width: 80px; height: 80px;">
+                        <i class="bi bi-person-fill text-primary display-4"></i>
+                    </div>
+                    <h4>{{ employee_info.name }}</h4>
+                    <span class="badge bg-primary rounded-pill px-3">{{ employee_info.role|capitalize }}</span>
+                </div>
+                
+                <div class="list-group list-group-flush">
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted"><i class="bi bi-card-heading me-2"></i>Employee ID</span>
+                        <span class="fw-bold font-monospace">#{{ employee_info.id }}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted"><i class="bi bi-envelope me-2"></i>Email</span>
+                        <span class="fw-bold">{{ employee_info.email }}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted"><i class="bi bi-building me-2"></i>Department</span>
+                        <span class="fw-bold">{{ employee_info.department}}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted"><i class="bi bi-clock me-2"></i>Shift</span>
+                        <span class="fw-bold">{{ employee_info.shift_time }}</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between align-items-center">
+                        <span class="text-muted"><i class="bi bi-cup-hot me-2"></i>Break Window</span>
+                        <span class="fw-bold text-success">1:00 PM - 2:00 PM</span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+<input type="hidden" id="employee-id" value="{{ session.get('employee_id', '') }}">
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script>
+    // --- Configuration & State ---
+    const EMPLOYEE_ID = document.getElementById('employee-id').value;
+    const LOG_INTERVAL_MS = 15000;
+    const MAX_IDLE_TIME_MS = 60000;
+    let trackingActive = true, mouseCount = 0, keystrokeCount = 0;
+    let lastActivityTime = Date.now(), logInterval, sessionStart;
+    let isPageActive = true, windowActivityMap = {};
+    let employeePeerConnection = null; // Global Peer Connection
+    let pendingCandidates = [];        // Queue for ICE candidates (Fixes Race Condition)
+
+    const socket = io();
+    const STUN_SERVERS = { 'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }] };
+
+    // --- DOM Elements ---
+    // (Existing DOM element references)
+    const mouseCountEl = document.getElementById('mouse-count');
+    const keyboardCountEl = document.getElementById('keystroke-count');
+    const statusDotEl = document.getElementById('status-dot');
+    const statusTextEl = document.getElementById('status-text');
+    const trackingCardEl = document.getElementById('tracking-status-card');
+    const statusContextEl = document.getElementById('status-context');
+    const prodScoreEl = document.getElementById('productivity-score');
+    const prodBarEl = document.getElementById('productivity-bar');
+    const idleTimeDisplayEl = document.getElementById('idle-time-display');
+    const activeTimeDisplayEl = document.getElementById('active-time-display');
+    const totalActivityCountEl = document.getElementById('total-activity-count');
+    const mostActiveWindowEl = document.getElementById('most-active-window-summary');
+    const sessionTimeEl = document.getElementById('session-time');
+    const startTimeEl = document.getElementById('start-time');
+    const logListEl = document.getElementById('log-list');
+    const activeWindowDisplayEl = document.getElementById('active-window-display');
+    const deviceIdEl = document.getElementById('device-id');
+    const notificationEl = document.getElementById('notification-message');
+    const logFilterEl = document.getElementById('log-filter');
+
+    // --- Core Logic ---
+
+    // 1. Socket Connection
+    socket.on('connect', () => {
+        if (EMPLOYEE_ID) socket.emit('employee_join_room', { employee_id: EMPLOYEE_ID });
+    });
+
+    // 2. WebRTC Signal Handler (Fixes: Handling Early ICE Candidates)
+    socket.on('webrtc_signal', async (signalData) => {
+        try {
+            if (!employeePeerConnection) return; // Wait for PC initialization
+
+            if (signalData.type === 'offer') {
+                console.log("Received OFFER from admin");
+                await employeePeerConnection.setRemoteDescription(new RTCSessionDescription(signalData.payload));
+
+                // Process any ICE candidates that arrived before the offer
+                while (pendingCandidates.length > 0) {
+                    const candidate = pendingCandidates.shift();
+                    await employeePeerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+                }
+
+                const answer = await employeePeerConnection.createAnswer();
+                await employeePeerConnection.setLocalDescription(answer);
+
+                socket.emit('webrtc_signal', {
+                    type: 'answer',
+                    sender_id: EMPLOYEE_ID,
+                    receiver_id: 'admin',
+                    payload: employeePeerConnection.localDescription
+                });
+            } else if (signalData.type === 'ice') {
+                const candidate = new RTCIceCandidate(signalData.payload);
+                if (employeePeerConnection.remoteDescription) {
+                    await employeePeerConnection.addIceCandidate(candidate);
+                } else {
+                    console.log("Queueing ICE candidate (remote desc not set)");
+                    pendingCandidates.push(signalData.payload);
+                }
+            }
+        } catch (err) {
+            console.error("WebRTC Signaling Error:", err);
+        }
+    });
+
+    // 3. Screen Share Request Handler (Fixes: Button Logic & Stream Setup)
+    socket.on('screen_share_request', function(data) {
+        console.log('Screen Share Request received');
+        
+        // Remove old alerts
+        document.querySelectorAll('.fixed-top.alert').forEach(el => el.remove());
+        
+        // Play Alert
+        try { new Audio("{{ url_for('static', filename='audio/alert.mp3') }}").play().catch(e=>{}); } catch (e) {}
+        
+        // Show Alert
+        const alertHtml = `
+            <div class="alert alert-info alert-dismissible fade show fixed-top m-3 shadow-lg" role="alert" style="z-index: 2000;">
+                <strong>🖥️ REQUEST:</strong> Admin requests screen share.
+                <button id="acceptScreenShare" class="btn btn-sm btn-success ms-3 me-2">Accept</button>
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        document.body.insertAdjacentHTML('afterbegin', alertHtml);
+
+        // Attach Listener to the NEW button
+        document.getElementById('acceptScreenShare').addEventListener('click', async function() {
+            this.disabled = true;
+            this.textContent = 'Connecting...';
+            
+            if (employeePeerConnection) employeePeerConnection.close();
+            pendingCandidates = []; // Reset queue
+
+            try {
+                // Get Screen Stream
+                const stream = await navigator.mediaDevices.getDisplayMedia({ video: { cursor: "always" }, audio: false });
+                
+                // Init PeerConnection
+                employeePeerConnection = new RTCPeerConnection(STUN_SERVERS);
+                
+                // Add Tracks
+                stream.getTracks().forEach(track => employeePeerConnection.addTrack(track, stream));
+
+                // Handle ICE
+                employeePeerConnection.onicecandidate = (event) => {
+                    if (event.candidate) {
+                        socket.emit('webrtc_signal', {
+                            type: 'ice',
+                            sender_id: EMPLOYEE_ID,
+                            receiver_id: 'admin',
+                            payload: event.candidate
+                        });
+                    }
+                };
+
+                // Stop stream on UI close
+                stream.getVideoTracks()[0].onended = () => {
+                    console.log("Screen sharing stopped by user.");
+                    if(employeePeerConnection) employeePeerConnection.close();
+                    document.querySelector('.fixed-top.alert')?.remove();
+                };
+
+                // Notify Admin to start the handshake (They will send OFFER)
+                socket.emit('screen_share_accepted', { employee_id: EMPLOYEE_ID, status: 'accepted' });
+                console.log("Stream ready. Waiting for Admin Offer...");
+
+            } catch (err) {
+                console.error("Screen Share Failed:", err);
+                alert("Could not start screen share. Permission denied?");
+                this.disabled = false;
+                this.textContent = 'Accept';
+            }
+        });
+    });
+
+    // 4. Warning Handler
+    socket.on('employee_warning', function(data) {
+        document.querySelectorAll('.fixed-top.alert').forEach(el => el.remove());
+        try { new Audio("{{ url_for('static', filename='audio/alert.mp3') }}").play().catch(e=>{}); } catch (e) {}
+        
+        const alertHtml = `
+            <div class="alert alert-danger alert-dismissible fade show fixed-top m-3 shadow-lg" role="alert" style="z-index: 2000;">
+                <strong>🚨 WARNING:</strong> ${data.message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>`;
+        document.body.insertAdjacentHTML('afterbegin', alertHtml);
+    });
+
+    // 5. Dashboard Updates
+    socket.on('employee_dashboard_update', function(data) {
+        updateStatsFromAPI(data.summary, data.risk_score); 
+        prependLogEntry(data.new_log);
+    });
+
+    // --- Helper Functions (Existing Logic Preserved) ---
+    function formatTime(seconds) {
+        const h = String(Math.floor(seconds / 3600)).padStart(2, '0');
+        const m = String(Math.floor((seconds % 3600) / 60)).padStart(2, '0');
+        const s = String(seconds % 60).padStart(2, '0');
+        return `${h}:${m}:${s}`;
+    }
+    function updateSessionTimer() { if (!sessionStart) return; sessionTimeEl.textContent = formatTime(Math.floor((Date.now() - sessionStart) / 1000)); }
+    function setDeviceId() { deviceIdEl.textContent = "BROWSER-" + Math.abs(Array.from(navigator.userAgent).reduce((h, c) => Math.imul(31, h) + c.charCodeAt(0) | 0, 0)).toString(16).slice(0, 8).toUpperCase(); }
+    function handleActivity() { if (trackingActive) lastActivityTime = Date.now(); }
+
+    logFilterEl.addEventListener('change', function() {
+        const filter = this.value;
+        logListEl.querySelectorAll('.log-item').forEach(log => {
+            log.style.display = (filter === 'all' || log.dataset.filter === filter) ? 'flex' : 'none';
+        });
+    });
+
+    function updateStatsFromAPI(summary, riskScore) {
+        const totalTime = summary.total_time || 0; 
+        const totalIdle = summary.total_idle || 0;
+        const totalActive = Math.max(0, totalTime - totalIdle);
+        const productivityScore = totalTime > 0 ? Math.round(totalActive / totalTime * 100) : 0;
+        
+        prodScoreEl.textContent = `${productivityScore}%`;
+        activeTimeDisplayEl.textContent = `${totalActive}s`;
+        idleTimeDisplayEl.textContent = `${totalIdle}s`;
+        prodBarEl.style.width = `${Math.min(100, productivityScore)}%`;
+        totalActivityCountEl.textContent = (summary.total_mouse || 0) + (summary.total_keyboard || 0);
+
+        // Notification Color Logic
+        const card = notificationEl.parentElement.parentElement;
+        card.className = 'card border-warning bg-warning-subtle'; // Reset base
+        notificationEl.className = 'mb-0 d-flex align-items-center'; // Reset base
+        
+        if (riskScore >= 80) {
+             card.classList.replace('bg-warning-subtle', 'bg-danger-subtle');
+             card.classList.replace('border-warning', 'border-danger');
+             notificationEl.innerHTML = `🚨 <strong>CRITICAL RISK:</strong> High risk score of ${Math.round(riskScore)}!`;
+        } else if (riskScore < 50) {
+             card.classList.replace('bg-warning-subtle', 'bg-success-subtle');
+             card.classList.replace('border-warning', 'border-success');
+             notificationEl.innerHTML = `✅ <strong>LOW RISK:</strong> System monitoring is stable.`;
+        }
+    }
+
+    function prependLogEntry(log) {
+        if (!log) return;
+        const idle = log.idle_time || 0;
+        const filter = idle > 0 ? 'idle' : 'active';
+        const color = idle >= 30 ? 'danger' : idle > 0 ? 'warning' : 'success';
+        const html = `
+            <div class="log-item p-3 border-bottom d-flex justify-content-between align-items-center highlight" data-filter="${filter}">
+                <div>
+                    <small class="text-muted d-block">${new Date(log.timestamp).toLocaleTimeString()}</small>
+                    <strong>M: ${log.mouse_activity} K: ${log.keyboard_activity} I: ${idle}s</strong>
+                    <div class="small text-truncate text-muted">Window: ${log.active_window_title || 'N/A'}</div>
+                </div>
+                <span class="badge bg-${color} align-self-center">${idle >= 30 ? 'High Idle' : idle > 0 ? 'Idle' : 'Active'}</span>
+            </div>`;
+        logListEl.insertAdjacentHTML('afterbegin', html);
+        setTimeout(() => logListEl.querySelector('.log-item').classList.remove('highlight'), 500);
+        if (logListEl.children.length > 10) logListEl.lastChild.remove();
+    }
+
+    // --- Input Tracking ---
+    document.addEventListener('mousemove', () => { if(trackingActive) { mouseCount++; handleActivity(); mouseCountEl.textContent = mouseCount; } });
+    document.addEventListener('click', () => { if(trackingActive) { mouseCount++; handleActivity(); } });
+    document.addEventListener('keydown', (e) => { if(trackingActive && !e.ctrlKey) { keystrokeCount++; handleActivity(); keyboardCountEl.textContent = keystrokeCount; } });
+    
+    // Tab Focus Logic
+    document.addEventListener('visibilitychange', () => {
+        const btn = document.getElementById('toggle-tracking');
+        if (document.hidden) {
+            isPageActive = false;
+            statusTextEl.textContent = 'Low Focus / Tab Hidden';
+            trackingCardEl.className = 'card status-card h-100 bg-warning-subtle border-warning border-4';
+            btn.className = 'btn btn-lg rounded-circle btn-warning';
+        } else {
+            isPageActive = true;
+            if (trackingActive) {
+                statusTextEl.textContent = 'Active Monitoring';
+                trackingCardEl.className = 'card status-card h-100 bg-success-subtle border-success border-4';
+                btn.className = 'btn btn-lg rounded-circle btn-success';
+            }
+        }
+    });
+
+    function logAndResetActivity() {
+        if (!trackingActive) return;
+        const interval = LOG_INTERVAL_MS / 1000;
+        let idle = 0, m = mouseCount, k = keystrokeCount;
+
+        if (!isPageActive || (Date.now() - lastActivityTime > MAX_IDLE_TIME_MS)) {
+            idle = interval;
+            if(!isPageActive) { m = 0; k = 0; }
+        }
+
+        socket.emit('desktop_activity_log', {
+            employee_id: EMPLOYEE_ID,
+            mouse_activity: m,
+            keyboard_activity: k,
+            idle_time: idle,
+            active_window_title: document.title
+        });
+
+        mouseCount = 0; keystrokeCount = 0;
+        mouseCountEl.textContent = 0; keyboardCountEl.textContent = 0;
+    }
+
+    window.toggleTracking = function() {
+        trackingActive = !trackingActive;
+        const btn = document.getElementById('toggle-tracking');
+        if (trackingActive) {
+            statusTextEl.textContent = 'Active Monitoring';
+            trackingCardEl.className = 'card status-card h-100 bg-success-subtle border-success border-4';
+            btn.innerHTML = '<i class="bi bi-pause"></i>';
+            btn.className = 'btn btn-lg rounded-circle btn-success';
+            logInterval = setInterval(logAndResetActivity, LOG_INTERVAL_MS);
+            lastActivityTime = Date.now(); 
+        } else {
+            statusTextEl.textContent = 'Monitoring Paused';
+            trackingCardEl.className = 'card status-card h-100 bg-warning-subtle border-warning border-4';
+            btn.innerHTML = '<i class="bi bi-play"></i>';
+            btn.className = 'btn btn-lg rounded-circle btn-danger';
+            clearInterval(logInterval);
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        sessionStart = Date.now();
+        startTimeEl.textContent = new Date(sessionStart).toLocaleTimeString();
+        setInterval(updateSessionTimer, 1000);
+        setDeviceId();
+        fetch(`/api/employee-summary/${EMPLOYEE_ID}`).then(r => r.json()).then(data => updateStatsFromAPI(data.summary, 0));
+        toggleTracking(); // Start Active
+    });
+</script>
+{% endblock %}
