@@ -13,14 +13,13 @@ class FraudDetector:
     def __init__(self):
         self.model = IsolationForest(
             n_estimators=100,
-            contamination=0.1,  # Assuming 10% of the population might be anomalous
+            contamination=0.1, 
             random_state=42,
             max_samples='auto'
         )
         self.scaler = StandardScaler()
         self.is_fitted = False
-        
-        # Keywords used to flag non-work related applications
+   
         self.distracting_keywords = [
             'youtube', 'reddit', 'netflix', 'game', 'social', 
             'facebook', 'twitter', 'instagram', 'discord', 'steam', 
@@ -45,22 +44,18 @@ class FraudDetector:
             mouse_activity = float(row.get('mouse_activity', 0))
             keyboard_activity = float(row.get('keyboard_activity', 0))
             hour = float(row.get('hour', 12))
-            
-            # Process Window Title ---
+          
             active_window_title = str(row.get('active_window_title', '')).lower()
-            
-            # Feature engineering for contextual data
+
             ip_hash = hash(str(row.get('ip_address', ''))) % 1000
             device_hash = hash(str(row.get('device_id', ''))) % 1000
 
             total_activity = mouse_activity + keyboard_activity
-            # A measure of the time spent idle relative to total measured time
+ 
             idle_ratio = idle_time / (idle_time + total_activity + 1)
 
-            # Feature: Is activity happening outside the 8 AM - 6 PM window?
             is_after_hours = 1 if hour < 8 or hour > 18 else 0
-            
-            # NEW FEATURE: Flag if the active window title contains a distracting keyword
+  
             non_work_app_flag = 1 if any(keyword in active_window_title for keyword in self.distracting_keywords) else 0
 
             features.append([
@@ -73,7 +68,7 @@ class FraudDetector:
                 idle_ratio,
                 is_after_hours,
                 total_activity,
-                non_work_app_flag  # The crucial new feature
+                non_work_app_flag 
             ])
 
         return np.array(features)
@@ -108,7 +103,6 @@ class FraudDetector:
 
         scaled_features = self.scaler.transform(features)
 
-        # Get anomaly scores (closer to 1 is normal, closer to -1 is anomalous)
         scores = self.model.score_samples(scaled_features)
         predictions = self.model.predict(scaled_features)
         
@@ -137,13 +131,11 @@ class FraudDetector:
         if not activity_data or len(activity_data) < 5:
             return None
 
-        # Fit model on the available data before predicting
         self.fit(activity_data)
 
         recent_data = activity_data[:10]
         result = self.predict_anomaly(recent_data)
 
-        # Identify human-readable risk factors
         factors = self._identify_risk_factors(recent_data)
 
         risk_score = result['anomaly_score']
@@ -209,7 +201,7 @@ class FraudDetector:
         factors = []
         df = pd.DataFrame(activity_data)
         
-        # 1. NEW RISK FACTOR: Distracting Application Usage
+        # Distracting Application Usage
         if 'active_window_title' in df.columns:
             # Count logs where the window title contains any distracting keyword
             distracting_logs = df['active_window_title'].apply(
@@ -225,7 +217,7 @@ class FraudDetector:
                         'description': f'{distracting_logs} out of {len(df)} recent logs show foreground use of non-work applications (e.g., social media, streaming).'
                     })
         
-        # 2. High Idle Time
+        #High Idle Time
         if 'idle_time' in df.columns:
             avg_idle = df['idle_time'].mean()
             if avg_idle > 45: # Threshold in seconds
@@ -235,7 +227,7 @@ class FraudDetector:
                     'description': f'Average idle time of {avg_idle:.0f} seconds exceeds normal threshold (low physical input).'
                 })
 
-        # 3. After Hours Activity
+        #After Hours Activity
         if 'hour' in df.columns:
             after_hours = df[df['hour'].apply(lambda x: x < 8 or x > 18)]
             if len(after_hours) > len(df) * 0.3:
@@ -245,7 +237,7 @@ class FraudDetector:
                     'description': 'Significant activity detected outside normal business hours (8AM-6PM).'
                 })
 
-        # 4. IP/Device Mismatch (Requires comprehensive login log data)
+        #IP/Device Mismatch
         if 'ip_address' in df.columns:
             unique_ips = df['ip_address'].nunique()
             if unique_ips > 3:
@@ -264,7 +256,7 @@ class FraudDetector:
                     'description': f'Multiple devices ({unique_devices}) used in recent sessions.'
                 })
         
-        # 5. Irregular Activity Patterns (High Variance)
+        #Irregular Activity Patterns
         if 'mouse_activity' in df.columns and 'keyboard_activity' in df.columns:
             total_activity = df['mouse_activity'] + df['keyboard_activity']
             activity_std = total_activity.std()
@@ -288,8 +280,5 @@ class FraudDetector:
         high_severity = [f for f in factors if f['severity'] == 'high']
 
         if high_severity:
-            # Prioritize a high-severity factor if available
             return high_severity[0]['description']
-
-        # Otherwise, take the most common or first medium/low factor
         return factors[0]['description']
