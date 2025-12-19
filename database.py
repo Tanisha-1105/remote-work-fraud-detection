@@ -11,16 +11,15 @@ class Database:
         self.db_config = {
             "host": "localhost",
             "user": "root",
-            "password": "Tanisha@1105",
+            "password": "",
             "database": "fraud_detection"
         }
 
     def get_connection(self):
         return mysql.connector.connect(**self.db_config)
 
-    # ------------------------------
     # CREATE ALL TABLES
-    # ------------------------------
+
     def init_db(self):
         conn = self.get_connection()
         cur = conn.cursor()
@@ -85,7 +84,6 @@ class Database:
         conn.close()
 
     # SEED DEMO DATA
-
     def seed_demo_data(self):
         conn = self.get_connection()
         cur = conn.cursor(dictionary=True)
@@ -120,9 +118,7 @@ class Database:
         cur.close()
         conn.close()
 
-    # ------------------------------
     # LOGIN / AUTH
-    # ------------------------------
     def get_employee_by_email(self, email):
         conn = self.get_connection()
         cur = conn.cursor(dictionary=True)
@@ -207,9 +203,7 @@ class Database:
             cur.close()
             conn.close()
 
-    # ------------------------------
     # ACTIVITY LOGS 
-    # ------------------------------
     def create_activity_log(self, employee_id, mouse, keyboard, idle, active_window_title=''):
         """Inserts an activity log record, including the active window title."""
         conn = self.get_connection()
@@ -300,10 +294,7 @@ class Database:
             cur.close()
             conn.close()
 
-
-    # ------------------------------
     # ALERTS
-    # ------------------------------
     def create_fraud_alert(self, employee_id, risk, level, description):
         conn = self.get_connection()
         cur = conn.cursor()
@@ -344,9 +335,7 @@ class Database:
         conn.close()
         return data
 
-    # ------------------------------
     # ADMIN DASHBOARD QUERIES
-    # ------------------------------
     def get_dashboard_stats(self):
         conn = self.get_connection()
         cur = conn.cursor(dictionary=True)
@@ -415,9 +404,8 @@ class Database:
         conn.close()
         return data
 
-    # ------------------------------
     # HOURLY ACTIVITY (FOR CHARTS)
-    # ------------------------------
+    
     def get_hourly_activity_data(self):
         conn = self.get_connection()
         cur = conn.cursor(dictionary=True)
@@ -438,9 +426,7 @@ class Database:
         conn.close()
         return data
 
-    # ------------------------------
     # ML ACTIVITY DATA
-    # ------------------------------
     def get_employee_activity_for_ml(self, employee_id):
         """Returns latest activity logs for ML model using real database tables."""
         try:
@@ -473,9 +459,7 @@ class Database:
             print("Error fetching ML activity:", e)
             return []
 
-    # ------------------------------
-    # EMPLOYEE MANAGEMENT (NEW)
-    # ------------------------------
+    # EMPLOYEE MANAGEMENT 
     def get_employee_by_id(self, employee_id):
         """Fetches a single employee record by ID."""
         conn = self.get_connection()
@@ -505,11 +489,9 @@ class Database:
     def delete_employee(self, employee_id):
         conn = self.get_connection()
         cur = conn.cursor()
-        # MUST delete related records first due to foreign key constraints
         cur.execute("DELETE FROM fraud_alerts WHERE employee_id = %s", (employee_id,))
         cur.execute("DELETE FROM activity_logs WHERE employee_id = %s", (employee_id,))
         cur.execute("DELETE FROM login_logs WHERE employee_id = %s", (employee_id,))
-        # Finally, delete the employee
         cur.execute("DELETE FROM employees WHERE id = %s", (employee_id,))
         conn.commit()
         cur.close()
